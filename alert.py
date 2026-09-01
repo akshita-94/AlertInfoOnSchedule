@@ -23,6 +23,7 @@ ALERT_SCHEDULES = (
     ("Morning Alert", 7, 30),
     ("Noon Alert", 12, 0),
     ("Night Alert", 22, 45),
+    ("Late Night Test Alert", 23, 45),
 )
 
 MARKET_SYMBOLS = ("GOOGL", "MRNA", "FXAIX")

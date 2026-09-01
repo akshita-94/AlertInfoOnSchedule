@@ -17,6 +17,7 @@ Configured for Seattle time:
 - 7:30 AM America/Los_Angeles
 - 12:00 PM America/Los_Angeles
 - 10:45 PM America/Los_Angeles
+- 11:45 PM America/Los_Angeles test alert
 
 GitHub Actions runs scheduled workflows from UTC cron entries. This workflow uses candidate UTC times for both PDT and PST, and `alert.py` checks Seattle local time before sending so daylight saving changes do not create duplicate alerts.
 

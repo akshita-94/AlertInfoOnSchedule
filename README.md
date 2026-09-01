@@ -18,6 +18,8 @@ Configured for Seattle time:
 - 12:00 PM America/Los_Angeles
 - 10:45 PM America/Los_Angeles
 
+GitHub Actions runs scheduled workflows from UTC cron entries. This workflow uses candidate UTC times for both PDT and PST, and `alert.py` checks Seattle local time before sending so daylight saving changes do not create duplicate alerts.
+
 ## Free Data Sources
 
 - Gold: Groww India gold-rate page by default
@@ -75,9 +77,9 @@ python3 alert.py
 Morning Alert
 Aug 31, 2026 7:30 AM PDT
 
-Gold India 22K: ₹12,345.67/g
-USD/INR: 83.1234
-GOOGL: $200.12
-MRNA: $31.45
-FXAIX: $215.67
+Gold India 22K: ₹14,370.00/g
+USD/INR: 95.1700
+GOOGL: $339.35
+MRNA: $140.34
+FXAIX: $267.46
 ```

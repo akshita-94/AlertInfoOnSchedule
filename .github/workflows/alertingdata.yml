@@ -3,12 +3,15 @@ name: AlertingData
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 7 * * *"
-      timezone: "America/Los_Angeles"
-    - cron: "0 12 * * *"
-      timezone: "America/Los_Angeles"
-    - cron: "45 22 * * *"
-      timezone: "America/Los_Angeles"
+    # GitHub schedule triggers are most reliable as UTC cron.
+    # These are candidate UTC times for Seattle daylight and standard time;
+    # alert.py gates them so only the matching local-time run sends a message.
+    - cron: "30 14 * * *" # 7:30 AM PDT
+    - cron: "30 15 * * *" # 7:30 AM PST
+    - cron: "0 19 * * *" # 12:00 PM PDT
+    - cron: "0 20 * * *" # 12:00 PM PST
+    - cron: "45 5 * * *" # 10:45 PM PDT
+    - cron: "45 6 * * *" # 10:45 PM PST
 
 jobs:
   send-alert:
@@ -31,4 +34,6 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           MARKET_DATA_PROVIDER: ${{ vars.MARKET_DATA_PROVIDER || 'yahoo' }}
           ALERT_TIMEZONE: America/Los_Angeles
+          SEND_ONLY_AT_SCHEDULED_TIME: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          SCHEDULE_TOLERANCE_MINUTES: "29"
         run: python alert.py

@@ -321,14 +321,11 @@ def fetch_market_quotes() -> list[AlertLine]:
     return fetch_yahoo_market_quotes()
 
 
-def current_alert_label(now: datetime) -> str:
-    override = os.getenv("ALERT_LABEL", "").strip()
-    if override:
-        return override
-
+def nearest_alert(now: datetime) -> tuple[str, int]:
     current_minutes = now.hour * 60 + now.minute
     best_label = "AlertingData"
     best_distance = 24 * 60
+
     for label, hour, minute in ALERT_SCHEDULES:
         target_minutes = hour * 60 + minute
         distance = abs(current_minutes - target_minutes)
@@ -337,7 +334,28 @@ def current_alert_label(now: datetime) -> str:
             best_label = label
             best_distance = distance
 
+    return best_label, best_distance
+
+
+def current_alert_label(now: datetime) -> str:
+    override = os.getenv("ALERT_LABEL", "").strip()
+    if override:
+        return override
+
+    best_label, best_distance = nearest_alert(now)
     return best_label if best_distance <= 90 else "AlertingData"
+
+
+def scheduled_gate_enabled() -> bool:
+    return os.getenv("SEND_ONLY_AT_SCHEDULED_TIME", "").strip().lower() in {"1", "true", "yes"}
+
+
+def should_send_scheduled_alert(now: datetime) -> tuple[bool, str]:
+    tolerance = int(os.getenv("SCHEDULE_TOLERANCE_MINUTES", "29"))
+    label, distance = nearest_alert(now)
+    if distance <= tolerance:
+        return True, f"Within {distance} minutes of {label}."
+    return False, f"Skipping: {now.strftime('%b %-d, %Y %-I:%M %p %Z')} is {distance} minutes from {label}."
 
 
 def build_alert_message(now: datetime) -> str:
@@ -399,6 +417,13 @@ def main() -> int:
 
     timezone = ZoneInfo(os.getenv("ALERT_TIMEZONE", "America/Los_Angeles"))
     now = datetime.now(timezone)
+
+    if scheduled_gate_enabled():
+        should_send, reason = should_send_scheduled_alert(now)
+        if not should_send:
+            print(reason)
+            return 0
+
     message = build_alert_message(now)
 
     if args.dry_run or os.getenv("DRY_RUN") == "1":

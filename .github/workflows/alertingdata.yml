@@ -12,7 +12,7 @@ on:
     - cron: "0 20 * * *" # 12:00 PM PST
     - cron: "45 5 * * *" # 10:45 PM PDT
     - cron: "45 6 * * *" # 10:45 PM PST / 11:45 PM PDT test
-    - cron: "45 7 * * *" # 11:45 PM PST test
+    - cron: "45 7 * * *" # 11:45 PM PST test / 12:45 AM PDT temporary test
 
 jobs:
   send-alert:

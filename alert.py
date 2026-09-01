@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
@@ -59,6 +60,15 @@ def load_dotenv(path: Path = Path(".env")) -> None:
 
 
 def get_json(url: str, params: dict[str, str] | None = None) -> Any:
+    payload = get_text(url, params)
+
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise AlertError("Response was not valid JSON") from exc
+
+
+def get_text(url: str, params: dict[str, str] | None = None) -> str:
     if params:
         url = f"{url}?{urllib.parse.urlencode(params)}"
 
@@ -72,7 +82,7 @@ def get_json(url: str, params: dict[str, str] | None = None) -> Any:
 
     try:
         with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
-            payload = response.read().decode("utf-8")
+            return response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:200]
         raise AlertError(f"HTTP {exc.code}: {detail}") from exc
@@ -80,11 +90,6 @@ def get_json(url: str, params: dict[str, str] | None = None) -> Any:
         raise AlertError(f"Network error: {exc.reason}") from exc
     except TimeoutError as exc:
         raise AlertError("Request timed out") from exc
-
-    try:
-        return json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise AlertError("Response was not valid JSON") from exc
 
 
 def post_form_json(url: str, fields: dict[str, str]) -> Any:
@@ -141,19 +146,76 @@ def unavailable(source: str, exc: Exception) -> AlertLine:
     return AlertLine(source, f"unavailable ({exc})")
 
 
-def fetch_gold_22k_inr() -> AlertLine:
+class VisibleTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.items: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        text = " ".join(data.split())
+        if text:
+            self.items.append(text)
+
+
+def html_text_items(html: str) -> list[str]:
+    parser = VisibleTextParser()
+    parser.feed(html)
+    return parser.items
+
+
+def parse_rupee_text(value: str) -> Decimal:
+    cleaned = value.replace("₹", "").replace(",", "").strip()
+    return parse_decimal(cleaned)
+
+
+def fetch_groww_gold_22k_inr() -> AlertLine:
+    html = get_text("https://groww.in/gold-rates")
+    items = html_text_items(html)
+
+    try:
+        section_start = items.index("Today Gold Rates Price Per Gram in India")
+    except ValueError as exc:
+        raise AlertError("missing per-gram gold section") from exc
+
+    try:
+        row_start = next(
+            index for index in range(section_start, len(items)) if items[index] == "1 Gram"
+        )
+    except StopIteration as exc:
+        raise AlertError("missing 1 Gram row") from exc
+
+    prices = [item for item in items[row_start + 1 : row_start + 12] if item.startswith("₹")]
+    if len(prices) < 2:
+        raise AlertError("missing 22K per-gram price")
+
+    price = parse_rupee_text(prices[1])
+    return AlertLine("Gold India 22K", f"{format_currency(price, 'INR')}/g")
+
+
+def fetch_spot_gold_22k_inr() -> AlertLine:
     data = get_json("https://api.goldprice.dev/v1/carat", {"currency": "INR"})
     price = data.get("price_gram_22k")
     if price is None:
         raise AlertError("missing price_gram_22k")
-    return AlertLine("Gold India 22K", f"{format_currency(price, 'INR')}/g")
+    return AlertLine("Gold India 22K Spot", f"{format_currency(price, 'INR')}/g")
+
+
+def fetch_gold_22k_inr() -> AlertLine:
+    provider = os.getenv("GOLD_DATA_PROVIDER", "groww").strip().lower()
+
+    if provider == "spot":
+        return fetch_spot_gold_22k_inr()
+    if provider != "groww":
+        raise AlertError(f"unknown GOLD_DATA_PROVIDER={provider}")
+
+    return fetch_groww_gold_22k_inr()
 
 
 def fetch_usd_inr() -> AlertLine:
-    data = get_json("https://api.frankfurter.dev/v2/rate/USD/INR", {"providers": "FBIL"})
-    rate = data.get("rate")
+    data = get_json("https://api.frankfurter.dev/v1/latest", {"base": "USD", "symbols": "INR"})
+    rate = data.get("rates", {}).get("INR")
     if rate is None:
-        raise AlertError("missing rate")
+        raise AlertError("missing INR rate")
     return AlertLine("USD/INR", format_decimal(rate, 4))
 
 

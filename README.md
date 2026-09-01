@@ -20,9 +20,11 @@ Configured for Seattle time:
 
 ## Free Data Sources
 
-- Gold: `https://api.goldprice.dev/v1/carat?currency=INR`
-- USD/INR: `https://api.frankfurter.dev/v2/rate/USD/INR?providers=FBIL`
+- Gold: Groww India gold-rate page by default
+- USD/INR: `https://api.frankfurter.dev/v1/latest?base=USD&symbols=INR`
 - Market quotes: Yahoo Finance public chart endpoint by default
+
+The Groww page is used because it is closer to the retail-style "gold rate in India" most people expect. The cleaner gold API, `goldprice.dev`, returns spot metal value by purity and does not include India retail jewellery premiums, so it can look low compared with Indian gold-rate sites. To use that spot value instead, set `GOLD_DATA_PROVIDER=spot`.
 
 The Yahoo Finance endpoint is the easiest no-key option for personal use, but it is not an official market-data API. To use Alpha Vantage instead, set `MARKET_DATA_PROVIDER=alpha_vantage` and add an `ALPHA_VANTAGE_API_KEY` secret. Alpha Vantage's free tier is currently enough for this project because it needs 9 market quote calls per day.
 
@@ -52,6 +54,7 @@ TELEGRAM_BOT_TOKEN=your_new_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ALERT_TIMEZONE=America/Los_Angeles
 MARKET_DATA_PROVIDER=yahoo
+GOLD_DATA_PROVIDER=groww
 ```
 
 Preview the alert without sending:
